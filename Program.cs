@@ -22,17 +22,16 @@ namespace BlockedCountriesApi
             builder.Services.AddSingleton<IGeoLocationService, GeoLocationService>();
             builder.Services.AddHostedService<BlockedCountriesCleanupService>();
 
-            // Configure rate limiting
+
             builder.Services.ConfigureRateLimiting();
 
             var app = builder.Build();
 
-            // Configure the HTTP request pipeline.
-            if (app.Environment.IsDevelopment())
-            {
-                app.UseSwagger();
-                app.UseSwaggerUI();
-            }
+
+
+            app.UseSwagger();
+            app.UseSwaggerUI();
+            
 
             app.UseHttpsRedirection();
 

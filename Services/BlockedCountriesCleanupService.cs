@@ -6,14 +6,14 @@ namespace BlockedCountriesApi.Services;
 public class BlockedCountriesCleanupService : BackgroundService
 {
     private readonly ILogger<BlockedCountriesCleanupService> _logger;
-    private readonly IEnumerable<ConcurrentDictionary<string, BlockedCountry>> _blockedCountries;
+    private readonly ConcurrentDictionary<string, BlockedCountry> _blockedCountries;
 
     public BlockedCountriesCleanupService(
         ILogger<BlockedCountriesCleanupService> logger,
         ICountryBlockingService countryBlockingService)
     {
         _logger = logger;
-        _blockedCountries = ((CountryBlockingService)countryBlockingService).GetBlockedCountries();
+        _blockedCountries = ((CountryBlockingService)countryBlockingService).GetBlockedCountries().Result;
     }
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)

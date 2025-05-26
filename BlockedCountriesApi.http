@@ -1,6 +1,6 @@
 @BlockedCountriesApi_HostAddress = http://localhost:5146
 
-GET {{BlockedCountriesApi_HostAddress}}/weatherforecast/
+GET {{BlockedCountriesApi_HostAddress}}/ip/check-block
 Accept: application/json
 
 ###

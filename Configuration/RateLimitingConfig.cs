@@ -1,5 +1,4 @@
-using Microsoft.AspNetCore.RateLimiting;
-using static Microsoft.AspNetCore.RateLimiting.RateLimiterOptionsExtensions;
+using System.Threading.RateLimiting;
 namespace BlockedCountriesApi.Configuration;
 
 public static class RateLimitingConfig
@@ -8,7 +7,7 @@ public static class RateLimitingConfig
     {
         services.AddRateLimiter(options =>
         {
-            // Global rate limiter for all endpoints
+            // Global rate limiter for all endpoints  
             options.GlobalLimiter = PartitionedRateLimiter.Create<HttpContext, string>(context =>
                 RateLimitPartition.GetFixedWindowLimiter(
                     partitionKey: context.User.Identity?.Name ?? context.Request.Headers.Host.ToString(),
@@ -19,7 +18,7 @@ public static class RateLimitingConfig
                         Window = TimeSpan.FromMinutes(1)
                     }));
 
-            // IP lookup endpoint - more restrictive
+            // IP lookup endpoint - more restrictive  
             options.AddPolicy("ip-lookup", httpContext =>
                 RateLimitPartition.GetFixedWindowLimiter(
                     partitionKey: httpContext.Connection.RemoteIpAddress?.ToString() ?? "unknown",
@@ -30,7 +29,7 @@ public static class RateLimitingConfig
                         Window = TimeSpan.FromMinutes(1)
                     }));
 
-            // Block check endpoint - most restrictive
+            // Block check endpoint - most restrictive  
             options.AddPolicy("block-check", httpContext =>
                 RateLimitPartition.GetFixedWindowLimiter(
                     partitionKey: httpContext.Connection.RemoteIpAddress?.ToString() ?? "unknown",
@@ -41,7 +40,7 @@ public static class RateLimitingConfig
                         Window = TimeSpan.FromMinutes(1)
                     }));
 
-            // Admin endpoints (block/unblock) - less restrictive
+            // Admin endpoints (block/unblock) - less restrictive  
             options.AddPolicy("admin", httpContext =>
                 RateLimitPartition.GetFixedWindowLimiter(
                     partitionKey: httpContext.User.Identity?.Name ?? httpContext.Request.Headers.Host.ToString(),
@@ -52,18 +51,18 @@ public static class RateLimitingConfig
                         Window = TimeSpan.FromMinutes(1)
                     }));
 
-            // Configure rate limit exceeded response
+            // Configure rate limit exceeded response  
             options.OnRejected = async (context, token) =>
             {
                 context.HttpContext.Response.StatusCode = StatusCodes.Status429TooManyRequests;
                 await context.HttpContext.Response.WriteAsJsonAsync(new
                 {
                     Error = "Too many requests. Please try again later.",
-                    RetryAfter = context.Lease.TryGetMetadata(MetadataName.RetryAfter, out var retryAfter) 
-                        ? retryAfter.TotalSeconds 
+                    RetryAfter = context.Lease.TryGetMetadata(MetadataName.RetryAfter, out var retryAfter)
+                        ? (double?)retryAfter.TotalSeconds
                         : null
                 }, token);
             };
         });
     }
-} 
+}

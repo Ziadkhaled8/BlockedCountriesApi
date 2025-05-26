@@ -3,16 +3,10 @@ using BlockedCountriesApi.Models;
 
 namespace BlockedCountriesApi.Services;
 
-public class CountryBlockingService : ICountryBlockingService
+public class CountryBlockingService() : ICountryBlockingService
 {
     private readonly ConcurrentDictionary<string, BlockedCountry> _blockedCountries = new();
     private readonly ConcurrentBag<BlockedAttempt> _blockedAttempts = new();
-    private readonly ILogger<CountryBlockingService> _logger;
-
-    public CountryBlockingService(ILogger<CountryBlockingService> logger)
-    {
-        _logger = logger;
-    }
 
     public Task<bool> BlockCountryAsync(string countryCode)
     {
@@ -114,7 +108,7 @@ public class CountryBlockingService : ICountryBlockingService
         return Task.FromResult(attempts);
     }
 
-    public Task<IEnumerable<ConcurrentDictionary<string, BlockedCountry>>> GetBlockedCountries()
+    public Task<ConcurrentDictionary<string, BlockedCountry>> GetBlockedCountries()
     {
         return Task.FromResult(_blockedCountries);
     }
