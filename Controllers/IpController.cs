@@ -35,11 +35,17 @@ public class IpController : ControllerBase
 
             return Ok(location);
         }
+        catch (ArgumentException ex)
+        {
+            _logger.LogWarning(ex, "Invalid IP address format: {IpAddress}", ipAddress);
+            return BadRequest("Invalid IP address format");
+        }
         catch (Exception ex)
         {
             _logger.LogError(ex, "Error looking up IP address");
             return StatusCode(500, "Error looking up IP address");
         }
+
     }
 
     [HttpGet("check-block")]
@@ -49,12 +55,12 @@ public class IpController : ControllerBase
         try
         {
             var location = await _geoLocationService.GetLocationFromCurrentIpAsync(HttpContext);
-            var isBlocked = await _countryBlockingService.IsCountryBlockedAsync(location.CountryCode);
+            var isBlocked = await _countryBlockingService.IsCountryBlockedAsync(location.Location.CountryCode2);
 
             var attempt = new BlockedAttempt
             {
                 IpAddress = location.Ip,
-                CountryCode = location.CountryCode,
+                CountryCode = location.Location.CountryCode2,
                 Timestamp = DateTime.UtcNow,
                 WasBlocked = isBlocked,
                 UserAgent = HttpContext.Request.Headers.UserAgent.ToString()
@@ -64,10 +70,10 @@ public class IpController : ControllerBase
 
             if (isBlocked)
             {
-                return Forbid();
+                return BadRequest(location);
             }
 
-            return Ok(new { IsBlocked = false, Country = location.CountryName });
+            return Ok(new { IsBlocked = false, Country = location.Location.CountryName });
         }
         catch (Exception ex)
         {

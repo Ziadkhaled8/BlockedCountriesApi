@@ -41,7 +41,7 @@ public class CountryBlockingService() : ICountryBlockingService
             return Task.FromResult(false);
         }
 
-        countryCode = countryCode.ToUpperInvariant();
+        countryCode = countryCode.ToUpper();
         if (!_blockedCountries.TryGetValue(countryCode, out var blockedCountry))
         {
             return Task.FromResult(false);

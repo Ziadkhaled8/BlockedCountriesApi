@@ -1,3 +1,4 @@
+using System.Net;
 using System.Net.Http.Json;
 using BlockedCountriesApi.Models;
 using Microsoft.Extensions.Options;
@@ -24,16 +25,22 @@ public class GeoLocationService : IGeoLocationService
     {
         try
         {
-            //var apiKey = _configuration["IpApi:ApiKey"];
-            var response = await _httpClient.GetFromJsonAsync<GeoLocationResponse>(
-                $"https://ipapi.co/{ipAddress}/json");
-
-            if (response == null)
+            if (!IPAddress.TryParse(ipAddress, out _))
             {
-                throw new Exception("Failed to get location data");
+                throw new ArgumentException("Invalid IP address format", nameof(ipAddress));
             }
+            var apiKey = _configuration["IpApi:ApiKey"];
 
-            return response;
+
+            var response = await _httpClient.GetFromJsonAsync<GeoLocationResponse>(
+                $"https://api.ipgeolocation.io/v2/ipgeo?apiKey={apiKey}&ip={ipAddress}");
+
+            return response ?? throw new Exception("Failed to get location data");
+        }
+        catch (ArgumentException ex)
+        {
+            _logger.LogWarning(ex, "Invalid IP address format: {IpAddress}", ipAddress);
+            throw;
         }
         catch (Exception ex)
         {
@@ -44,7 +51,9 @@ public class GeoLocationService : IGeoLocationService
 
     public async Task<GeoLocationResponse> GetLocationFromCurrentIpAsync(HttpContext context)
     {
-        var ipAddress = context.Connection.RemoteIpAddress?.ToString() ?? "127.0.0.1";
+        var ipAddress = context.Connection.RemoteIpAddress?.ToString();
+        if(ipAddress == null || ipAddress=="::1" || ipAddress== "127.0.0.1")
+            ipAddress = "8.8.8.8";
         return await GetLocationFromIpAsync(ipAddress);
     }
 } 
