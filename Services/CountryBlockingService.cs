@@ -1,4 +1,5 @@
 using System.Collections.Concurrent;
+using System.Globalization;
 using BlockedCountriesApi.Models;
 
 namespace BlockedCountriesApi.Services;
@@ -72,12 +73,7 @@ public class CountryBlockingService() : ICountryBlockingService
 
     public Task<bool> TemporarilyBlockCountryAsync(string countryCode, int durationMinutes)
     {
-        if (string.IsNullOrWhiteSpace(countryCode) || countryCode.Length != 2 ||
-            durationMinutes < 1 || durationMinutes > 1440)
-        {
-            return Task.FromResult(false);
-        }
-
+        
         countryCode = countryCode.ToUpperInvariant();
         if (_blockedCountries.ContainsKey(countryCode))
         {

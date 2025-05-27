@@ -2,6 +2,7 @@ using BlockedCountriesApi.Models;
 using BlockedCountriesApi.Services;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.RateLimiting;
+using System.Globalization;
 
 namespace BlockedCountriesApi.Controllers;
 
@@ -68,26 +69,40 @@ public class CountriesController : ControllerBase
     [HttpPost("temporal-block")]
     public async Task<IActionResult> TemporarilyBlockCountry([FromBody] TemporalBlockRequest request)
     {
-        if (string.IsNullOrWhiteSpace(request.CountryCode) || request.CountryCode.Length != 2)
+        try
         {
-            return BadRequest("Invalid country code");
-        }
+            if (string.IsNullOrWhiteSpace(request.CountryCode) || request.CountryCode.Length != 2)
+            {
+                throw new ArgumentException("Invalid country code", nameof(request.CountryCode));
+            }
 
-        if (request.DurationMinutes < 1 || request.DurationMinutes > 1440)
+            if (request.DurationMinutes < 1 || request.DurationMinutes > 1440)
+            {
+                throw new ArgumentOutOfRangeException(nameof(request.DurationMinutes), "Duration must be between 1 and 1440 minutes (24 hours).");
+            }
+            
+
+            var success = await _countryBlockingService.TemporarilyBlockCountryAsync(
+                request.CountryCode,
+                request.DurationMinutes);
+
+            if (!success)
+            {
+                return Conflict("Country is already blocked");
+            }
+
+            return Ok();
+        }
+        catch (ArgumentException ex)
         {
-            return BadRequest("Duration must be between 1 and 1440 minutes");
+            _logger.LogWarning(ex, "Invalid input for temporarily blocking country");
+            return BadRequest(ex.Message);
         }
-
-        var success = await _countryBlockingService.TemporarilyBlockCountryAsync(
-            request.CountryCode,
-            request.DurationMinutes);
-
-        if (!success)
+        catch (Exception ex)
         {
-            return Conflict("Country is already blocked");
+            _logger.LogError(ex, "Error while temporarily blocking country");
+            return StatusCode(500, "Internal server error");
         }
-
-        return Ok();
     }
 }
 
