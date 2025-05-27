@@ -179,4 +179,11 @@ public class CountryBlockingService : ICountryBlockingService
             Country = location.Location.CountryName
         };
     }
+
+    public async Task<ConcurrentDictionary<string, BlockedCountry>> GetBlockedCountries()
+    {
+        var countries = await _blockedCountriesRepository.GetAllAsync();
+        return new ConcurrentDictionary<string, BlockedCountry>(
+            countries.ToDictionary(c => c.CountryCode, c => c));
+    }
 } 
