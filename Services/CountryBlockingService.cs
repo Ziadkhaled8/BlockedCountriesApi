@@ -1,111 +1,182 @@
 using System.Collections.Concurrent;
 using System.Globalization;
 using BlockedCountriesApi.Models;
+using BlockedCountriesApi.Repositories;
 
 namespace BlockedCountriesApi.Services;
 
-public class CountryBlockingService() : ICountryBlockingService
+public class CountryBlockingService : ICountryBlockingService
 {
-    private readonly ConcurrentDictionary<string, BlockedCountry> _blockedCountries = new();
-    private readonly ConcurrentBag<BlockedAttempt> _blockedAttempts = new();
+    private readonly IBlockedCountriesRepository _blockedCountriesRepository;
+    private readonly IBlockedAttemptsRepository _blockedAttemptsRepository;
 
-    public Task<bool> BlockCountryAsync(string countryCode)
+    public CountryBlockingService(
+        IBlockedCountriesRepository blockedCountriesRepository,
+        IBlockedAttemptsRepository blockedAttemptsRepository)
     {
-        if (string.IsNullOrWhiteSpace(countryCode) || countryCode.Length != 2)
+        _blockedCountriesRepository = blockedCountriesRepository;
+        _blockedAttemptsRepository = blockedAttemptsRepository;
+    }
+
+    private void ValidateCountryCode(string countryCode)
+    {
+        if (string.IsNullOrWhiteSpace(countryCode))
         {
-            return Task.FromResult(false);
+            throw new ValidationException("Country code cannot be empty");
         }
 
+        if (countryCode.Length != 2)
+        {
+            throw new ValidationException("Country code must be 2 characters long");
+        }
+    }
+
+    public async Task BlockCountryAsync(string countryCode)
+    {
+        ValidateCountryCode(countryCode);
         countryCode = countryCode.ToUpperInvariant();
-        return Task.FromResult(_blockedCountries.TryAdd(countryCode, new BlockedCountry
+
+        if (!await _blockedCountriesRepository.AddAsync(countryCode, new BlockedCountry
         {
             CountryCode = countryCode,
             BlockedAt = DateTime.UtcNow
-        }));
+        }))
+        {
+            throw new CountryAlreadyBlockedException(countryCode);
+        }
     }
 
-    public Task<bool> UnblockCountryAsync(string countryCode)
+    public async Task UnblockCountryAsync(string countryCode)
     {
-        if (string.IsNullOrWhiteSpace(countryCode) || countryCode.Length != 2)
-        {
-            return Task.FromResult(false);
-        }
-
+        ValidateCountryCode(countryCode);
         countryCode = countryCode.ToUpperInvariant();
-        return Task.FromResult(_blockedCountries.TryRemove(countryCode, out _));
+
+        if (!await _blockedCountriesRepository.RemoveAsync(countryCode))
+        {
+            throw new CountryNotBlockedException(countryCode);
+        }
     }
 
-    public Task<bool> IsCountryBlockedAsync(string countryCode)
+    public async Task<bool> IsCountryBlockedAsync(string countryCode)
     {
-        if (string.IsNullOrWhiteSpace(countryCode) || countryCode.Length != 2)
-        {
-            return Task.FromResult(false);
-        }
+        ValidateCountryCode(countryCode);
+        countryCode = countryCode.ToUpperInvariant();
 
-        countryCode = countryCode.ToUpper();
-        if (!_blockedCountries.TryGetValue(countryCode, out var blockedCountry))
+        var blockedCountry = await _blockedCountriesRepository.GetAsync(countryCode);
+        if (blockedCountry == null)
         {
-            return Task.FromResult(false);
+            return false;
         }
 
         if (blockedCountry.ExpiresAt.HasValue && blockedCountry.ExpiresAt.Value < DateTime.UtcNow)
         {
-            _blockedCountries.TryRemove(countryCode, out _);
-            return Task.FromResult(false);
+            await _blockedCountriesRepository.RemoveAsync(countryCode);
+            return false;
         }
 
-        return Task.FromResult(true);
+        return true;
     }
 
-    public Task<IEnumerable<BlockedCountry>> GetBlockedCountriesAsync(int page = 1, int pageSize = 10, string? searchTerm = null)
+    public async Task<IEnumerable<BlockedCountry>> GetBlockedCountriesAsync(int page = 1, int pageSize = 10, string? searchTerm = null)
     {
-        var query = _blockedCountries.Values.AsEnumerable();
-
-        if (!string.IsNullOrWhiteSpace(searchTerm))
+        if (page < 1)
         {
-            searchTerm = searchTerm.ToUpperInvariant();
-            query = query.Where(c => c.CountryCode.Contains(searchTerm));
+            throw new ValidationException("Page number must be greater than 0");
         }
 
-        query = query.Skip((page - 1) * pageSize).Take(pageSize);
-        return Task.FromResult(query);
+        if (pageSize < 1 || pageSize > 100)
+        {
+            throw new ValidationException("Page size must be between 1 and 100");
+        }
+
+        return await _blockedCountriesRepository.GetAllAsync((page - 1) * pageSize, pageSize, searchTerm);
     }
 
-    public Task<bool> TemporarilyBlockCountryAsync(string countryCode, int durationMinutes)
+    public async Task TemporarilyBlockCountryAsync(string countryCode, int durationMinutes)
     {
-        
+        ValidateCountryCode(countryCode);
+
+        if (durationMinutes < 1 || durationMinutes > 1440)
+        {
+            throw new ValidationException("Duration must be between 1 and 1440 minutes (24 hours)");
+        }
+
         countryCode = countryCode.ToUpperInvariant();
-        if (_blockedCountries.ContainsKey(countryCode))
-        {
-            return Task.FromResult(false);
-        }
-
-        return Task.FromResult(_blockedCountries.TryAdd(countryCode, new BlockedCountry
+        if (!await _blockedCountriesRepository.AddAsync(countryCode, new BlockedCountry
         {
             CountryCode = countryCode,
             BlockedAt = DateTime.UtcNow,
             ExpiresAt = DateTime.UtcNow.AddMinutes(durationMinutes)
-        }));
+        }))
+        {
+            throw new CountryAlreadyBlockedException(countryCode);
+        }
     }
 
-    public Task LogBlockedAttemptAsync(BlockedAttempt attempt)
+    public async Task LogBlockedAttemptAsync(BlockedAttempt attempt)
     {
-        _blockedAttempts.Add(attempt);
-        return Task.CompletedTask;
+        if (attempt == null)
+        {
+            throw new ValidationException("Attempt cannot be null");
+        }
+
+        if (string.IsNullOrWhiteSpace(attempt.IpAddress))
+        {
+            throw new ValidationException("IP address cannot be empty");
+        }
+
+        if (string.IsNullOrWhiteSpace(attempt.CountryCode))
+        {
+            throw new ValidationException("Country code cannot be empty");
+        }
+
+        await _blockedAttemptsRepository.AddAsync(attempt);
     }
 
-    public Task<IEnumerable<BlockedAttempt>> GetBlockedAttemptsAsync(int page = 1, int pageSize = 10)
+    public async Task<IEnumerable<BlockedAttempt>> GetBlockedAttemptsAsync(int page = 1, int pageSize = 10)
     {
-        var attempts = _blockedAttempts
-            .OrderByDescending(a => a.Timestamp)
-            .Skip((page - 1) * pageSize)
-            .Take(pageSize);
+        if (page < 1)
+        {
+            throw new ValidationException("Page number must be greater than 0");
+        }
 
-        return Task.FromResult(attempts);
+        if (pageSize < 1 || pageSize > 100)
+        {
+            throw new ValidationException("Page size must be between 1 and 100");
+        }
+
+        return await _blockedAttemptsRepository.GetAllAsync((page - 1) * pageSize, pageSize);
     }
 
-    public Task<ConcurrentDictionary<string, BlockedCountry>> GetBlockedCountries()
+    public async Task<BlockStatusResponse> CheckIpBlockStatusAsync(GeoLocationResponse location, string userAgent)
     {
-        return Task.FromResult(_blockedCountries);
+        if (location == null)
+        {
+            throw new ValidationException("Location information cannot be null");
+        }
+
+        if (string.IsNullOrWhiteSpace(location.Location.CountryCode2))
+        {
+            throw new ValidationException("Country code cannot be empty");
+        }
+
+        var isBlocked = await IsCountryBlockedAsync(location.Location.CountryCode2);
+
+        var attempt = new BlockedAttempt
+        {
+            IpAddress = location.Ip,
+            CountryCode = location.Location.CountryCode2,
+            Timestamp = DateTime.UtcNow,
+            WasBlocked = isBlocked,
+            UserAgent = userAgent
+        };
+
+        await LogBlockedAttemptAsync(attempt);
+
+        return new BlockStatusResponse
+        {
+            IsBlocked = isBlocked,
+            Country = location.Location.CountryName
+        };
     }
 } 

@@ -1,19 +1,19 @@
-using System.Collections.Concurrent;
 using BlockedCountriesApi.Models;
+using BlockedCountriesApi.Repositories;
 
 namespace BlockedCountriesApi.Services;
 
 public class BlockedCountriesCleanupService : BackgroundService
 {
     private readonly ILogger<BlockedCountriesCleanupService> _logger;
-    private readonly ConcurrentDictionary<string, BlockedCountry> _blockedCountries;
+    private readonly IBlockedCountriesRepository _blockedCountriesRepository;
 
     public BlockedCountriesCleanupService(
         ILogger<BlockedCountriesCleanupService> logger,
-        ICountryBlockingService countryBlockingService)
+        IBlockedCountriesRepository blockedCountriesRepository)
     {
         _logger = logger;
-        _blockedCountries = ((CountryBlockingService)countryBlockingService).GetBlockedCountries().Result;
+        _blockedCountriesRepository = blockedCountriesRepository;
     }
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
@@ -22,14 +22,15 @@ public class BlockedCountriesCleanupService : BackgroundService
         {
             try
             {
-                var expiredCountries = _blockedCountries
-                    .Where(kvp => kvp.Value.ExpiresAt.HasValue && kvp.Value.ExpiresAt.Value < DateTime.UtcNow)
+                var allCountries = await _blockedCountriesRepository.GetAllAsync();
+                var expiredCountries = allCountries
+                    .Where(c => c.ExpiresAt.HasValue && c.ExpiresAt.Value < DateTime.UtcNow)
                     .ToList();
 
                 foreach (var country in expiredCountries)
                 {
-                    _blockedCountries.TryRemove(country.Key, out _);
-                    _logger.LogInformation("Removed expired temporary block for country {CountryCode}", country.Key);
+                    await _blockedCountriesRepository.RemoveAsync(country.CountryCode);
+                    _logger.LogInformation("Removed expired temporary block for country {CountryCode}", country.CountryCode);
                 }
             }
             catch (Exception ex)

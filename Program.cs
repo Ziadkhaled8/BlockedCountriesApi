@@ -1,4 +1,5 @@
 using BlockedCountriesApi.Configuration;
+using BlockedCountriesApi.Repositories;
 using BlockedCountriesApi.Services;
 
 namespace BlockedCountriesApi
@@ -17,17 +18,18 @@ namespace BlockedCountriesApi
             // Configure HttpClient
             builder.Services.AddHttpClient<IGeoLocationService, GeoLocationService>();
 
+            // Register repositories
+            builder.Services.AddSingleton<IBlockedCountriesRepository, InMemoryBlockedCountriesRepository>();
+            builder.Services.AddSingleton<IBlockedAttemptsRepository, InMemoryBlockedAttemptsRepository>();
+
             // Register services
             builder.Services.AddSingleton<ICountryBlockingService, CountryBlockingService>();
             builder.Services.AddSingleton<IGeoLocationService, GeoLocationService>();
             builder.Services.AddHostedService<BlockedCountriesCleanupService>();
 
-
             builder.Services.ConfigureRateLimiting();
 
             var app = builder.Build();
-
-
 
             app.UseSwagger();
             app.UseSwaggerUI();

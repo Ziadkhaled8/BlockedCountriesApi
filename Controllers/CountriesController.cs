@@ -25,35 +25,51 @@ public class CountriesController : ControllerBase
     [HttpPost("block")]
     public async Task<IActionResult> BlockCountry([FromBody] string countryCode)
     {
-        if (string.IsNullOrWhiteSpace(countryCode) || countryCode.Length != 2)
+        try
         {
-            return BadRequest("Invalid country code");
+            await _countryBlockingService.BlockCountryAsync(countryCode);
+            return Ok();
         }
-
-        var success = await _countryBlockingService.BlockCountryAsync(countryCode);
-        if (!success)
+        catch (CountryAlreadyBlockedException ex)
         {
-            return Conflict("Country is already blocked");
+            _logger.LogWarning(ex, "Attempt to block already blocked country");
+            return Conflict(ex.Message);
         }
-
-        return Ok();
+        catch (ValidationException ex)
+        {
+            _logger.LogWarning(ex, "Validation error while blocking country");
+            return BadRequest(ex.Message);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error while blocking country");
+            return StatusCode(500, "Internal server error");
+        }
     }
 
     [HttpDelete("block/{countryCode}")]
     public async Task<IActionResult> UnblockCountry(string countryCode)
     {
-        if (string.IsNullOrWhiteSpace(countryCode) || countryCode.Length != 2)
+        try
         {
-            return BadRequest("Invalid country code");
+            await _countryBlockingService.UnblockCountryAsync(countryCode);
+            return Ok();
         }
-
-        var success = await _countryBlockingService.UnblockCountryAsync(countryCode);
-        if (!success)
+        catch (CountryNotBlockedException ex)
         {
-            return NotFound("Country is not blocked");
+            _logger.LogWarning(ex, "Attempt to unblock non-blocked country");
+            return NotFound(ex.Message);
         }
-
-        return Ok();
+        catch (ValidationException ex)
+        {
+            _logger.LogWarning(ex, "Validation error while unblocking country");
+            return BadRequest(ex.Message);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error while unblocking country");
+            return StatusCode(500, "Internal server error");
+        }
     }
 
     [HttpGet("blocked")]
@@ -62,8 +78,21 @@ public class CountriesController : ControllerBase
         [FromQuery] int pageSize = 10,
         [FromQuery] string? searchTerm = null)
     {
-        var countries = await _countryBlockingService.GetBlockedCountriesAsync(page, pageSize, searchTerm);
-        return Ok(countries);
+        try
+        {
+            var countries = await _countryBlockingService.GetBlockedCountriesAsync(page, pageSize, searchTerm);
+            return Ok(countries);
+        }
+        catch (ValidationException ex)
+        {
+            _logger.LogWarning(ex, "Validation error while getting blocked countries");
+            return BadRequest(ex.Message);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error while getting blocked countries");
+            return StatusCode(500, "Internal server error");
+        }
     }
 
     [HttpPost("temporal-block")]
@@ -71,31 +100,20 @@ public class CountriesController : ControllerBase
     {
         try
         {
-            if (string.IsNullOrWhiteSpace(request.CountryCode) || request.CountryCode.Length != 2)
-            {
-                throw new ArgumentException("Invalid country code", nameof(request.CountryCode));
-            }
-
-            if (request.DurationMinutes < 1 || request.DurationMinutes > 1440)
-            {
-                throw new ArgumentOutOfRangeException(nameof(request.DurationMinutes), "Duration must be between 1 and 1440 minutes (24 hours).");
-            }
-            
-
-            var success = await _countryBlockingService.TemporarilyBlockCountryAsync(
+            await _countryBlockingService.TemporarilyBlockCountryAsync(
                 request.CountryCode,
                 request.DurationMinutes);
 
-            if (!success)
-            {
-                return Conflict("Country is already blocked");
-            }
-
             return Ok();
         }
-        catch (ArgumentException ex)
+        catch (CountryAlreadyBlockedException ex)
         {
-            _logger.LogWarning(ex, "Invalid input for temporarily blocking country");
+            _logger.LogWarning(ex, "Attempt to temporarily block already blocked country");
+            return Conflict(ex.Message);
+        }
+        catch (ValidationException ex)
+        {
+            _logger.LogWarning(ex, "Validation error while temporarily blocking country");
             return BadRequest(ex.Message);
         }
         catch (Exception ex)

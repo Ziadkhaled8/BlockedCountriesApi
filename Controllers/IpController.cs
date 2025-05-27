@@ -35,17 +35,16 @@ public class IpController : ControllerBase
 
             return Ok(location);
         }
-        catch (ArgumentException ex)
+        catch (ValidationException ex)
         {
-            _logger.LogWarning(ex, "Invalid IP address format: {IpAddress}", ipAddress);
-            return BadRequest("Invalid IP address format");
+            _logger.LogWarning(ex, "Validation error while looking up IP");
+            return BadRequest(ex.Message);
         }
         catch (Exception ex)
         {
             _logger.LogError(ex, "Error looking up IP address");
             return StatusCode(500, "Error looking up IP address");
         }
-
     }
 
     [HttpGet("check-block")]
@@ -55,25 +54,21 @@ public class IpController : ControllerBase
         try
         {
             var location = await _geoLocationService.GetLocationFromCurrentIpAsync(HttpContext);
-            var isBlocked = await _countryBlockingService.IsCountryBlockedAsync(location.Location.CountryCode2);
+            var result = await _countryBlockingService.CheckIpBlockStatusAsync(
+                location,
+                HttpContext.Request.Headers.UserAgent.ToString());
 
-            var attempt = new BlockedAttempt
+            if (result.IsBlocked)
             {
-                IpAddress = location.Ip,
-                CountryCode = location.Location.CountryCode2,
-                Timestamp = DateTime.UtcNow,
-                WasBlocked = isBlocked,
-                UserAgent = HttpContext.Request.Headers.UserAgent.ToString()
-            };
-
-            await _countryBlockingService.LogBlockedAttemptAsync(attempt);
-
-            if (isBlocked)
-            {
-                return BadRequest(location);
+                return BadRequest(result);
             }
 
-            return Ok(new { IsBlocked = false, Country = location.Location.CountryName });
+            return Ok(result);
+        }
+        catch (ValidationException ex)
+        {
+            _logger.LogWarning(ex, "Validation error while checking block status");
+            return BadRequest(ex.Message);
         }
         catch (Exception ex)
         {
