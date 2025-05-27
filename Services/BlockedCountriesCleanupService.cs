@@ -29,6 +29,10 @@ public class BlockedCountriesCleanupService : BackgroundService
 
                 foreach (var country in expiredCountries)
                 {
+                    if (stoppingToken.IsCancellationRequested)
+                    {
+                        return;
+                    }
                     await _blockedCountriesRepository.RemoveAsync(country.CountryCode);
                     _logger.LogInformation("Removed expired temporary block for country {CountryCode}", country.CountryCode);
                 }
