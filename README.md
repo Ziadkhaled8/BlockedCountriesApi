@@ -10,11 +10,24 @@ A .NET Core Web API that manages blocked countries and validates IP addresses us
 - Blocked attempts logging
 - In-memory data storage
 - Swagger documentation
+- Rate limiting support (configurable)
 
 ## Prerequisites
 
-- .NET 9.0 SDK
+- .NET 9.0 SDK (Preview)
 - API key from [ipapi.co](https://ipapi.co/) or [IPGeolocation.io](https://ipgeolocation.io/)
+
+## Project Structure
+
+```
+BlockedCountriesApi/
+├── Controllers/         # API controllers
+├── Models/             # Data models and DTOs
+├── Services/           # Business logic services
+├── Repositories/       # Data access layer
+├── Configuration/      # Application configuration
+└── Properties/         # Project properties
+```
 
 ## Setup
 
@@ -27,66 +40,63 @@ A .NET Core Web API that manages blocked countries and validates IP addresses us
      }
    }
    ```
-3. Run the application:
+3. Configure rate limiting (optional) in `appsettings.json`:
+   ```json
+   {
+     "RateLimiting": {
+       "PermitLimit": 100,
+       "WindowMinutes": 1
+     }
+   }
+   ```
+4. Run the application:
    ```bash
    dotnet run
    ```
-4. Access Swagger documentation at `https://localhost:5001/swagger`
+5. Access Swagger documentation at `http://localhost:5146/swagger`
 
 ## API Endpoints
 
 ### Countries
 
 - `POST /api/countries/block` - Block a country
+  - Request: `"US"` (2-letter ISO country code)
+  - Response: 200 OK or 409 Conflict if already blocked
+
 - `DELETE /api/countries/block/{countryCode}` - Unblock a country
+  - Response: 200 OK or 404 Not Found
+
 - `GET /api/countries/blocked` - Get all blocked countries
+  - Response: Array of blocked country codes
+
 - `POST /api/countries/temporal-block` - Temporarily block a country
+  - Request:
+    ```json
+    {
+      "countryCode": "US",
+      "durationMinutes": 120
+    }
+    ```
+  - Response: 200 OK or 409 Conflict
 
 ### IP
 
 - `GET /api/ip/lookup?ipAddress={ip}` - Look up IP address location
+  - Response: Country information for the IP
+
 - `GET /api/ip/check-block` - Check if current IP is blocked
+  - Response:
+    ```json
+    {
+      "isBlocked": false,
+      "country": "United States"
+    }
+    ```
 
 ### Logs
 
 - `GET /api/logs/blocked-attempts` - Get blocked attempts log
-
-## Request/Response Examples
-
-### Block a Country
-
-```http
-POST /api/countries/block
-Content-Type: application/json
-
-"US"
-```
-
-### Temporarily Block a Country
-
-```http
-POST /api/countries/temporal-block
-Content-Type: application/json
-
-{
-  "countryCode": "US",
-  "durationMinutes": 120
-}
-```
-
-### Check IP Block Status
-
-```http
-GET /api/ip/check-block
-```
-
-Response:
-```json
-{
-  "isBlocked": false,
-  "country": "United States"
-}
-```
+  - Response: Array of blocked attempt records
 
 ## Error Handling
 
@@ -97,11 +107,41 @@ The API returns appropriate HTTP status codes:
 - 403: Forbidden (IP is blocked)
 - 404: Not Found
 - 409: Conflict (country already blocked)
+- 429: Too Many Requests (rate limit exceeded)
 - 500: Internal Server Error
+
+## Configuration
+
+### Rate Limiting
+
+Rate limiting can be configured in `appsettings.json`:
+
+```json
+{
+  "RateLimiting": {
+    "PermitLimit": 100,      // Number of requests allowed
+    "WindowMinutes": 1       // Time window in minutes
+  }
+}
+```
+
+### IP API Configuration
+
+Configure the IP geolocation service in `appsettings.json`:
+
+```json
+{
+  "IpApi": {
+    "ApiKey": "YOUR_API_KEY_HERE",
+    "BaseUrl": "https://api.ipapi.com/api/"
+  }
+}
+```
 
 ## Notes
 
 - All country codes must be 2-letter ISO codes (e.g., "US", "GB", "EG")
 - Temporary blocks must be between 1 and 1440 minutes (24 hours)
 - The API uses in-memory storage, so data is lost on application restart
-- Expired temporary blocks are automatically removed every 5 minutes 
+- Expired temporary blocks are automatically removed every 5 minutes
+- Rate limiting is optional and can be configured or disabled 
