@@ -53,7 +53,7 @@ BlockedCountriesApi/
    ```bash
    dotnet run
    ```
-5. Access Swagger documentation at `http://localhost:5146/swagger`
+5. Access Swagger documentation at `http://localhost:5146/swagger` or `https://localhost:7264/swagger`
 
 ## API Endpoints
 
