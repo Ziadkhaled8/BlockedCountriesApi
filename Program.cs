@@ -1,6 +1,8 @@
 using BlockedCountriesApi.Configuration;
 using BlockedCountriesApi.Repositories;
 using BlockedCountriesApi.Services;
+using FastEndpoints;
+using FastEndpoints.Security;
 
 namespace BlockedCountriesApi
 {
@@ -11,8 +13,9 @@ namespace BlockedCountriesApi
             var builder = WebApplication.CreateBuilder(args);
 
             // Add services to the container.
-            builder.Services.AddControllers();
+            builder.Services.AddFastEndpoints();
             builder.Services.AddEndpointsApiExplorer();
+            builder.Services.AddAuthorization();
             builder.Services.AddSwaggerGen(c =>
             {
                 c.SwaggerDoc("v1", new Microsoft.OpenApi.Models.OpenApiInfo
@@ -44,6 +47,11 @@ namespace BlockedCountriesApi
 
             var app = builder.Build();
 
+            app.UseFastEndpoints(c =>
+            {
+                c.Endpoints.RoutePrefix = "api";
+            });
+
             app.UseSwagger();
             app.UseSwaggerUI();
             
@@ -54,8 +62,6 @@ namespace BlockedCountriesApi
 
             // Enable rate limiting
             app.UseRateLimiter();
-
-            app.MapControllers();
 
             app.Run();
         }
