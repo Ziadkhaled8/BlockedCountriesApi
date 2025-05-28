@@ -13,7 +13,20 @@ namespace BlockedCountriesApi
             // Add services to the container.
             builder.Services.AddControllers();
             builder.Services.AddEndpointsApiExplorer();
-            builder.Services.AddSwaggerGen();
+            builder.Services.AddSwaggerGen(c =>
+            {
+                c.SwaggerDoc("v1", new Microsoft.OpenApi.Models.OpenApiInfo
+                {
+                    Title = "Blocked Countries API",
+                    Version = "v1",
+                    Description = "API for managing blocked countries and checking IP block status",
+                    Contact = new Microsoft.OpenApi.Models.OpenApiContact
+                    {
+                        Name = "API Support",
+                        Email = "ziadkhaledmadeeh@gmail.com"
+                    }
+                });
+            });
 
             // Configure HttpClient
             builder.Services.AddHttpClient<IGeoLocationService, GeoLocationService>();
