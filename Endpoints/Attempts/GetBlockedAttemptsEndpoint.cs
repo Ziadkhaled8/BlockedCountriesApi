@@ -22,6 +22,7 @@ public class GetBlockedAttemptsEndpoint : Endpoint<GetBlockedAttemptsRequest, ob
         Get("/api/attempts");
         AllowAnonymous();
         Options(x => x.RequireRateLimiting("admin"));
+    
     }
 
     public override async Task HandleAsync(GetBlockedAttemptsRequest req, CancellationToken ct)

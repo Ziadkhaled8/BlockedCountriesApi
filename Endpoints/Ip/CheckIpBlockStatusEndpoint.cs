@@ -24,7 +24,7 @@ public class CheckIpBlockStatusEndpoint : EndpointWithoutRequest<object>
     {
         Get("/api/ip/check");
         AllowAnonymous();
-        Options(x => x.RequireRateLimiting("default"));
+        Options(x => x.RequireRateLimiting("block-check"));
     }
 
     public override async Task HandleAsync(CancellationToken ct)

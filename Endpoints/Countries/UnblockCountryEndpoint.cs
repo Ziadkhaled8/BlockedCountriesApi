@@ -27,8 +27,7 @@ public class UnblockCountryEndpoint : Endpoint<UnblockCountryRequest>
     public override async Task HandleAsync(UnblockCountryRequest req, CancellationToken ct)
     {
         try
-        {
-            await _countryBlockingService.UnblockCountryAsync(req.CountryCode);
+        {            await _countryBlockingService.UnblockCountryAsync(req.CountryCode);
             await SendOkAsync(ct);
         }
         catch (CountryNotBlockedException ex)

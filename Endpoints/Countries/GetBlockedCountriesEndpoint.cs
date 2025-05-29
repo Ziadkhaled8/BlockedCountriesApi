@@ -22,6 +22,7 @@ public class GetBlockedCountriesEndpoint : Endpoint<GetBlockedCountriesRequest, 
         Get("/api/countries/blocked");
         AllowAnonymous();
         Options(x => x.RequireRateLimiting("admin"));
+
     }
 
     public override async Task HandleAsync(GetBlockedCountriesRequest req, CancellationToken ct)

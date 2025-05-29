@@ -1,6 +1,8 @@
 using BlockedCountriesApi.Models;
 using BlockedCountriesApi.Services;
 using FastEndpoints;
+using Microsoft.AspNetCore.Mvc;
+using FromQueryAttribute = FastEndpoints.FromQueryAttribute;
 
 namespace BlockedCountriesApi.Endpoints.Ip;
 
@@ -19,10 +21,11 @@ public class GetLocationFromIpEndpoint : Endpoint<GetLocationFromIpRequest, obje
 
     public override void Configure()
     {
-        Get("/api/ip/lookup/{ipAddress}");
+        Get("/api/ip/lookup");
         AllowAnonymous();
         Options(x => x.RequireRateLimiting("ip-lookup"));
     }
+
 
     public override async Task HandleAsync(GetLocationFromIpRequest req, CancellationToken ct)
     {
@@ -46,5 +49,6 @@ public class GetLocationFromIpEndpoint : Endpoint<GetLocationFromIpRequest, obje
 
 public class GetLocationFromIpRequest
 {
+    [QueryParam]
     public string IpAddress { get; set; } = string.Empty;
 } 
